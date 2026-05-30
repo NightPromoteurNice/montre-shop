@@ -1,9 +1,13 @@
+'use client'
+import { useCart } from '@/context/CartContext'
+
 export default function Home() {
+  const { count } = useCart()
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white overflow-hidden">
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 flex items-center bg-[#0a0a0a]/90 backdrop-blur-sm border-b border-white/5">
-        {/* Left - tabs */}
         <div className="flex h-16">
           <a href="/11" className="flex items-center px-10 h-full text-sm tracking-[0.2em] uppercase border-r border-white/5 hover:bg-white/5 transition-colors text-white/70 hover:text-white">
             1:1
@@ -12,14 +16,12 @@ export default function Home() {
             Hyperclone
           </a>
         </div>
-        {/* Center - logo */}
         <div className="flex-1 flex justify-center">
-          <span className="text-base tracking-[0.4em] uppercase font-light">Watches</span>
+          <a href="/" className="text-base tracking-[0.4em] uppercase font-light hover:text-white/60 transition-colors">Watches</a>
         </div>
-        {/* Right */}
         <div className="flex h-16">
-          <a href="/cart" className="flex items-center px-10 h-full text-sm tracking-[0.2em] uppercase border-l border-white/5 hover:bg-white/5 transition-colors text-white/70 hover:text-white">
-            Cart
+          <a href="/cart" className="flex items-center gap-2 px-10 h-full text-sm tracking-[0.2em] uppercase border-l border-white/5 hover:bg-white/5 transition-colors text-white/70 hover:text-white">
+            Cart {count > 0 && <span className="bg-white text-black text-xs w-5 h-5 rounded-full flex items-center justify-center">{count}</span>}
           </a>
         </div>
       </nav>
@@ -68,5 +70,5 @@ export default function Home() {
         </div>
       </section>
     </main>
-  );
+  )
 }

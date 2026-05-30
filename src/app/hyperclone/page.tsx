@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useCart } from '@/context/CartContext'
 
 type Watch = {
   id: string
@@ -16,6 +17,8 @@ type Watch = {
 export default function Hyperclone() {
   const [watches, setWatches] = useState<Watch[]>([])
   const [selectedBrand, setSelectedBrand] = useState('All')
+  const [added, setAdded] = useState<string | null>(null)
+  const { addItem } = useCart()
 
   useEffect(() => {
     const fetchWatches = async () => {
@@ -31,15 +34,19 @@ export default function Hyperclone() {
   const brands = ['All', ...Array.from(new Set(watches.map(w => w.brand)))]
   const filtered = selectedBrand === 'All' ? watches : watches.filter(w => w.brand === selectedBrand)
 
+  const handleAdd = (watch: Watch) => {
+    addItem(watch)
+    setAdded(watch.id)
+    setTimeout(() => setAdded(null), 1500)
+  }
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
-      {/* Header */}
       <div className="px-10 py-16 border-b border-white/5">
         <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-4">Collection</p>
         <h1 className="text-5xl font-thin tracking-wide">Hyperclone</h1>
       </div>
 
-      {/* Brand filters */}
       <div className="px-10 py-6 flex gap-4 overflow-x-auto border-b border-white/5">
         {brands.map(brand => (
           <button
@@ -56,7 +63,6 @@ export default function Hyperclone() {
         ))}
       </div>
 
-      {/* Watches grid */}
       <div className="px-10 py-16">
         {filtered.length === 0 ? (
           <div className="text-center py-32 text-white/20 text-sm tracking-widest uppercase">
@@ -80,8 +86,15 @@ export default function Hyperclone() {
                 <p className="text-sm text-white/40 mb-6 line-clamp-2">{watch.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-light">€{watch.price.toLocaleString()}</span>
-                  <button className="text-xs tracking-[0.2em] uppercase border border-white/20 px-6 py-2 hover:bg-white hover:text-black transition-all duration-300">
-                    Add to cart
+                  <button
+                    onClick={() => handleAdd(watch)}
+                    className={`text-xs tracking-[0.2em] uppercase border px-6 py-2 transition-all duration-300 ${
+                      added === watch.id
+                        ? 'border-green-400 text-green-400'
+                        : 'border-white/20 hover:bg-white hover:text-black'
+                    }`}
+                  >
+                    {added === watch.id ? 'Added ✓' : 'Add to cart'}
                   </button>
                 </div>
               </div>
