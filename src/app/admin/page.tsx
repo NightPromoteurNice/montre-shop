@@ -3,7 +3,12 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+const ADMIN_PASSWORD = 'Mistigri64+'
+
 export default function Admin() {
+  const [authenticated, setAuthenticated] = useState(false)
+  const [password, setPassword] = useState('')
+  const [wrongPassword, setWrongPassword] = useState(false)
   const [form, setForm] = useState({
     name: '',
     brand: '',
@@ -15,6 +20,15 @@ export default function Admin() {
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+
+  const handleLogin = () => {
+    if (password === ADMIN_PASSWORD) {
+      setAuthenticated(true)
+    } else {
+      setWrongPassword(true)
+      setTimeout(() => setWrongPassword(false), 2000)
+    }
+  }
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -35,6 +49,34 @@ export default function Admin() {
     }
   }
 
+  if (!authenticated) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
+        <div className="w-full max-w-sm px-10">
+          <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-4 text-center">Back Office</p>
+          <h1 className="text-3xl font-thin mb-12 text-center">Admin Access</h1>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="Password"
+            className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 mb-4"
+          />
+          {wrongPassword && (
+            <p className="text-xs tracking-widest uppercase text-red-400 mb-4">Wrong password</p>
+          )}
+          <button
+            onClick={handleLogin}
+            className="w-full border border-white/20 px-10 py-4 text-xs tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-300"
+          >
+            Enter
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
       <div className="max-w-2xl mx-auto px-10 py-16">
@@ -42,7 +84,6 @@ export default function Admin() {
         <h1 className="text-4xl font-thin mb-16">Add a Watch</h1>
 
         <div className="flex flex-col gap-6">
-          {/* Category */}
           <div>
             <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Category</label>
             <div className="flex gap-4">
@@ -60,7 +101,6 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Brand */}
           <div>
             <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Brand</label>
             <input
@@ -72,7 +112,6 @@ export default function Admin() {
             />
           </div>
 
-          {/* Name */}
           <div>
             <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Model Name</label>
             <input
@@ -84,7 +123,6 @@ export default function Admin() {
             />
           </div>
 
-          {/* Price */}
           <div>
             <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Price (€)</label>
             <input
@@ -96,7 +134,6 @@ export default function Admin() {
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Description</label>
             <textarea
@@ -108,7 +145,6 @@ export default function Admin() {
             />
           </div>
 
-          {/* Image URL */}
           <div>
             <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Image URL</label>
             <input
@@ -120,7 +156,6 @@ export default function Admin() {
             />
           </div>
 
-          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={loading}
