@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCart } from '@/context/CartContext'
+import Navbar from '@/components/Navbar'
 
 type Watch = {
   id: string
@@ -42,6 +43,7 @@ export default function Hyperclone() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
+      <Navbar />
       <div className="px-10 py-16 border-b border-white/5">
         <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-4">Collection</p>
         <h1 className="text-5xl font-thin tracking-wide">Hyperclone</h1>

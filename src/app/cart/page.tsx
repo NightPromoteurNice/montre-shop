@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useCart } from '@/context/CartContext'
 import { useState } from 'react'
+import Navbar from '@/components/Navbar'
 
 export default function Cart() {
   const { items, removeItem, total } = useCart()
@@ -21,10 +22,10 @@ export default function Cart() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
+      <Navbar />
       <div className="max-w-2xl mx-auto px-10 py-16">
         <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-4">Your Selection</p>
         <h1 className="text-4xl font-thin mb-16">Cart</h1>
-
         {items.length === 0 ? (
           <div className="text-center py-32 text-white/20 text-sm tracking-widest uppercase">
             Your cart is empty
@@ -57,12 +58,10 @@ export default function Cart() {
                 </div>
               ))}
             </div>
-
             <div className="flex items-center justify-between mb-12 border-t border-white/10 pt-6">
               <span className="text-xs tracking-widest uppercase text-white/40">Total</span>
               <span className="text-2xl font-thin">€{total.toLocaleString()}</span>
             </div>
-
             <button
               onClick={handleCheckout}
               disabled={loading}
