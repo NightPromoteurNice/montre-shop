@@ -19,7 +19,7 @@ export default function Home() {
   useEffect(() => {
     const fetchWatches = async () => {
       const { data } = await supabase.from('watches').select('*').not('image_url', 'is', null).limit(10)
-      if (data && data.length > 0) setWatches(data)
+     if (data && data.length > 0) setWatches(data as Watch[])
     }
     fetchWatches()
   }, [])
