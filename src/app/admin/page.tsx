@@ -18,8 +18,8 @@ type Watch = {
 type Variant = {
   color: string
   stock: string
-  image: File | null
-  preview: string | null
+  images: File[]
+  previews: string[]
 }
 
 export default function Admin() {
@@ -53,7 +53,7 @@ export default function Admin() {
   }
 
   const addVariant = () => {
-    setVariants([...variants, { color: '', stock: '1', image: null, preview: null }])
+    setVariants([...variants, { color: '', stock: '1', images: [], previews: [] }])
   }
 
   const updateVariantColor = (index: number, value: string) => {
@@ -68,10 +68,19 @@ export default function Admin() {
     setVariants(updated)
   }
 
-  const updateVariantImage = (index: number, file: File) => {
+  const addVariantImages = (index: number, files: FileList) => {
     const updated = [...variants]
-    updated[index].image = file
-    updated[index].preview = URL.createObjectURL(file)
+    const newFiles = Array.from(files)
+    const newPreviews = newFiles.map(f => URL.createObjectURL(f))
+    updated[index].images = [...updated[index].images, ...newFiles].slice(0, 10)
+    updated[index].previews = [...updated[index].previews, ...newPreviews].slice(0, 10)
+    setVariants(updated)
+  }
+
+  const removeVariantImage = (variantIndex: number, imageIndex: number) => {
+    const updated = [...variants]
+    updated[variantIndex].images = updated[variantIndex].images.filter((_, i) => i !== imageIndex)
+    updated[variantIndex].previews = updated[variantIndex].previews.filter((_, i) => i !== imageIndex)
     setVariants(updated)
   }
 
@@ -106,20 +115,33 @@ export default function Admin() {
 
     if (!error && watchData) {
       let firstImageUrl = ''
+
       for (let i = 0; i < variants.length; i++) {
         const variant = variants[i]
-        let image_url = ''
-        if (variant.image) {
-          image_url = await uploadImage(variant.image)
-          if (i === 0) firstImageUrl = image_url
-        }
-        await supabase.from('variants').insert([{
+        const { data: variantData } = await supabase.from('variants').insert([{
           watch_id: watchData.id,
           color: variant.color,
           stock: parseInt(variant.stock),
-          image_url
-        }])
+          image_url: ''
+        }]).select().single()
+
+        if (variantData) {
+          for (let j = 0; j < variant.images.length; j++) {
+            const imageUrl = await uploadImage(variant.images[j])
+            await supabase.from('watch_images').insert([{
+              variant_id: variantData.id,
+              image_url: imageUrl,
+              position: j
+            }])
+            if (i === 0 && j === 0) firstImageUrl = imageUrl
+          }
+          if (variant.images.length > 0) {
+            const firstVariantImage = await uploadImage(variant.images[0])
+            await supabase.from('variants').update({ image_url: firstVariantImage }).eq('id', variantData.id)
+          }
+        }
       }
+
       if (firstImageUrl) {
         await supabase.from('watches').update({ image_url: firstImageUrl }).eq('id', watchData.id)
       }
@@ -146,14 +168,9 @@ export default function Admin() {
         <div className="w-full max-w-sm px-10">
           <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-4 text-center">Back Office</p>
           <h1 className="text-3xl font-thin mb-12 text-center">Admin Access</h1>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            placeholder="Password"
-            className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 mb-4"
-          />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()} placeholder="Password"
+            className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 mb-4" />
           {wrongPassword && <p className="text-xs tracking-widest uppercase text-red-400 mb-4">Wrong password</p>}
           <button onClick={handleLogin} className="w-full border border-white/20 px-10 py-4 text-xs tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-300">
             Enter
@@ -206,7 +223,7 @@ export default function Admin() {
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Model Name</label>
               <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-                placeholder="Submariner Date..."
+                placeholder="Day-Date 40..."
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
@@ -254,20 +271,29 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <label className="w-full border border-dashed border-white/20 px-6 py-6 flex flex-col items-center gap-3 cursor-pointer hover:border-white/40 transition-colors mb-4">
-                    {variant.preview ? (
-                      <img src={variant.preview} className="w-32 h-32 object-cover" />
-                    ) : (
-                      <>
-                        <span className="text-white/20 text-2xl">+</span>
-                        <span className="text-xs tracking-widest uppercase text-white/30">Upload photo</span>
-                      </>
-                    )}
-                    <input type="file" accept="image/*" onChange={e => {
-                      const file = e.target.files?.[0]
-                      if (file) updateVariantImage(i, file)
-                    }} className="hidden" />
+                  {/* Photos grid */}
+                  <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">
+                    Photos ({variant.images.length}/10)
                   </label>
+                  <div className="grid grid-cols-5 gap-2 mb-3">
+                    {variant.previews.map((preview, j) => (
+                      <div key={j} className="relative aspect-square">
+                        <img src={preview} className="w-full h-full object-cover border border-white/10" />
+                        <button onClick={() => removeVariantImage(i, j)}
+                          className="absolute top-1 right-1 bg-black/80 text-white text-xs w-5 h-5 flex items-center justify-center hover:bg-red-500 transition-colors">
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {variant.images.length < 10 && (
+                      <label className="aspect-square border border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors">
+                        <span className="text-white/20 text-xl">+</span>
+                        <input type="file" accept="image/*" multiple onChange={e => {
+                          if (e.target.files) addVariantImages(i, e.target.files)
+                        }} className="hidden" />
+                      </label>
+                    )}
+                  </div>
 
                   <button onClick={() => removeVariant(i)} className="text-xs tracking-widest uppercase text-red-400/60 hover:text-red-400 transition-colors">
                     Remove variant
