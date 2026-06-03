@@ -38,38 +38,21 @@ export default function WatchPage() {
     if (!id) return
     const fetchWatch = async () => {
       setLoading(true)
-
-      const { data: watchData } = await supabase
-        .from('watches')
-        .select('*')
-        .eq('id', id)
-        .single()
-
+      const { data: watchData } = await supabase.from('watches').select('*').eq('id', id).single()
       if (!watchData) { setLoading(false); return }
 
-      const { data: variantsData } = await supabase
-        .from('variants')
-        .select('*')
-        .eq('watch_id', id)
-
+      const { data: variantsData } = await supabase.from('variants').select('*').eq('watch_id', id)
       const variantsWithImages = await Promise.all(
         (variantsData || []).map(async (v) => {
-          const { data: images } = await supabase
-            .from('watch_images')
-            .select('*')
-            .eq('variant_id', v.id)
-            .order('position')
+          const { data: images } = await supabase.from('watch_images').select('*').eq('variant_id', v.id).order('position')
           return { ...v, images: images || [] }
         })
       )
 
-      const fullWatch = { ...watchData, variants: variantsWithImages }
-      setWatch(fullWatch)
-
+      setWatch({ ...watchData, variants: variantsWithImages })
       if (variantsWithImages.length > 0) {
         setSelectedVariant(variantsWithImages[0])
-        const firstImage = variantsWithImages[0].images[0]?.image_url || variantsWithImages[0].image_url
-        setSelectedImage(firstImage || null)
+        setSelectedImage(variantsWithImages[0].images[0]?.image_url || variantsWithImages[0].image_url || null)
       }
       setLoading(false)
     }
@@ -78,8 +61,7 @@ export default function WatchPage() {
 
   const handleVariantSelect = (variant: Variant) => {
     setSelectedVariant(variant)
-    const firstImage = variant.images[0]?.image_url || variant.image_url
-    setSelectedImage(firstImage || null)
+    setSelectedImage(variant.images[0]?.image_url || variant.image_url || null)
   }
 
   const handleAdd = () => {
@@ -114,17 +96,17 @@ export default function WatchPage() {
     : selectedVariant?.image_url ? [selectedVariant.image_url] : []
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
+    <main className="min-h-screen bg-[#0a0a0a] text-white pt-14 md:pt-16">
       <Navbar />
-      <div className="max-w-6xl mx-auto px-10 py-16">
-        <a href={`/${watch.category}`} className="text-xs tracking-widest uppercase text-white/30 hover:text-white transition-colors mb-12 block">
+      <div className="max-w-6xl mx-auto px-4 md:px-10 py-8 md:py-16">
+        <a href={`/${watch.category}`} className="text-xs tracking-widest uppercase text-white/30 hover:text-white transition-colors mb-8 md:mb-12 block">
           ← Back
         </a>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16">
           {/* Images */}
           <div>
-            <div className="aspect-square bg-white/3 border border-white/5 mb-4 overflow-hidden">
+            <div className="aspect-square bg-white/3 border border-white/5 mb-3 overflow-hidden">
               {selectedImage ? (
                 <img src={selectedImage} alt={watch.name} className="w-full h-full object-cover" />
               ) : (
@@ -148,21 +130,21 @@ export default function WatchPage() {
           </div>
 
           {/* Details */}
-          <div>
-            <p className="text-xs tracking-[0.4em] uppercase text-white/30 mb-3">{watch.brand}</p>
-            <h1 className="text-4xl font-thin mb-2">{watch.name}</h1>
-            <p className="text-2xl font-thin text-white/70 mb-8">€{watch.price.toLocaleString()}</p>
-            <p className="text-sm text-white/50 leading-relaxed mb-10">{watch.description}</p>
+          <div className="py-4 md:py-0">
+            <p className="text-xs tracking-[0.4em] uppercase text-white/30 mb-2">{watch.brand}</p>
+            <h1 className="text-2xl md:text-4xl font-thin mb-2">{watch.name}</h1>
+            <p className="text-xl md:text-2xl font-thin text-white/70 mb-6 md:mb-8">€{watch.price.toLocaleString()}</p>
+            <p className="text-sm text-white/50 leading-relaxed mb-8 md:mb-10">{watch.description}</p>
 
             {watch.variants.length > 0 && (
-              <div className="mb-10">
-                <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-4 block">
+              <div className="mb-8 md:mb-10">
+                <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 md:mb-4 block">
                   Color — <span className="text-white">{selectedVariant?.color}</span>
                 </label>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 md:gap-3">
                   {watch.variants.map(variant => (
                     <button key={variant.id} onClick={() => handleVariantSelect(variant)}
-                      className={`px-6 py-2 text-xs tracking-[0.2em] uppercase border transition-colors ${
+                      className={`px-4 md:px-6 py-2 text-xs tracking-[0.2em] uppercase border transition-colors ${
                         selectedVariant?.id === variant.id
                           ? 'border-white text-white'
                           : 'border-white/20 text-white/40 hover:border-white/40'
@@ -176,10 +158,8 @@ export default function WatchPage() {
             )}
 
             {selectedVariant && (
-              <p className="text-xs tracking-widest uppercase mb-8 text-white/40">
-                {selectedVariant.stock > 0
-                  ? `In stock — ${selectedVariant.stock} available`
-                  : 'Out of stock'}
+              <p className="text-xs tracking-widest uppercase mb-6 md:mb-8 text-white/40">
+                {selectedVariant.stock > 0 ? `In stock — ${selectedVariant.stock} available` : 'Out of stock'}
               </p>
             )}
 
