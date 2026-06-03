@@ -22,6 +22,13 @@ export async function POST(req: NextRequest) {
     payment_method_types: ['card'],
     line_items,
     mode: 'payment',
+    billing_address_collection: 'required',
+    shipping_address_collection: {
+      allowed_countries: ['FR', 'BE', 'CH', 'LU', 'MC', 'ES', 'IT', 'DE', 'GB', 'NL', 'PT', 'US', 'AE'],
+    },
+    phone_number_collection: {
+      enabled: true,
+    },
     success_url: `${req.headers.get('origin')}/success`,
     cancel_url: `${req.headers.get('origin')}/cart`,
   })
