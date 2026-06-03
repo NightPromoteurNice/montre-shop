@@ -13,7 +13,6 @@ type Watch = {
   description: string
   category: string
   image_url: string
-  stock: number
 }
 
 type Variant = {
@@ -30,7 +29,7 @@ export default function Admin() {
   const [tab, setTab] = useState<'add' | 'manage'>('add')
   const [watches, setWatches] = useState<Watch[]>([])
   const [form, setForm] = useState({
-    name: '', brand: '', price: '', description: '', category: 'hyperclone', stock: '1'
+    name: '', brand: '', price: '', description: '', category: 'hyperclone'
   })
   const [variants, setVariants] = useState<Variant[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,14 +56,22 @@ export default function Admin() {
     setVariants([...variants, { color: '', stock: '1', image: null, preview: null }])
   }
 
-  const updateVariant = (index: number, field: keyof Variant, value: string | File | null) => {
+  const updateVariantColor = (index: number, value: string) => {
     const updated = [...variants]
-    if (field === 'image' && value instanceof File) {
-      updated[index].image = value
-      updated[index].preview = URL.createObjectURL(value)
-    } else if (field !== 'image' && field !== 'preview') {
-      (updated[index] as Record<string, string>)[field] = value as string
-    }
+    updated[index].color = value
+    setVariants(updated)
+  }
+
+  const updateVariantStock = (index: number, value: string) => {
+    const updated = [...variants]
+    updated[index].stock = value
+    setVariants(updated)
+  }
+
+  const updateVariantImage = (index: number, file: File) => {
+    const updated = [...variants]
+    updated[index].image = file
+    updated[index].preview = URL.createObjectURL(file)
     setVariants(updated)
   }
 
@@ -88,16 +95,24 @@ export default function Admin() {
     setLoading(true)
 
     const { data: watchData, error } = await supabase.from('watches').insert([{
-      name: form.name, brand: form.brand, price: parseFloat(form.price),
-      description: form.description, category: form.category,
-      image_url: variants[0]?.preview ? '' : '',
-      stock: parseInt(form.stock)
+      name: form.name,
+      brand: form.brand,
+      price: parseFloat(form.price),
+      description: form.description,
+      category: form.category,
+      image_url: '',
+      stock: variants.length
     }]).select().single()
 
     if (!error && watchData) {
-      for (const variant of variants) {
+      let firstImageUrl = ''
+      for (let i = 0; i < variants.length; i++) {
+        const variant = variants[i]
         let image_url = ''
-        if (variant.image) image_url = await uploadImage(variant.image)
+        if (variant.image) {
+          image_url = await uploadImage(variant.image)
+          if (i === 0) firstImageUrl = image_url
+        }
         await supabase.from('variants').insert([{
           watch_id: watchData.id,
           color: variant.color,
@@ -105,9 +120,7 @@ export default function Admin() {
           image_url
         }])
       }
-
-      if (variants.length > 0 && variants[0].image) {
-        const firstImageUrl = await uploadImage(variants[0].image)
+      if (firstImageUrl) {
         await supabase.from('watches').update({ image_url: firstImageUrl }).eq('id', watchData.id)
       }
     }
@@ -115,7 +128,7 @@ export default function Admin() {
     setLoading(false)
     if (!error) {
       setSuccess(true)
-      setForm({ name: '', brand: '', price: '', description: '', category: 'hyperclone', stock: '1' })
+      setForm({ name: '', brand: '', price: '', description: '', category: 'hyperclone' })
       setVariants([])
       setTimeout(() => setSuccess(false), 3000)
       fetchWatches()
@@ -133,9 +146,14 @@ export default function Admin() {
         <div className="w-full max-w-sm px-10">
           <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-4 text-center">Back Office</p>
           <h1 className="text-3xl font-thin mb-12 text-center">Admin Access</h1>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()} placeholder="Password"
-            className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 mb-4" />
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="Password"
+            className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 mb-4"
+          />
           {wrongPassword && <p className="text-xs tracking-widest uppercase text-red-400 mb-4">Wrong password</p>}
           <button onClick={handleLogin} className="w-full border border-white/20 px-10 py-4 text-xs tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-300">
             Enter
@@ -181,28 +199,31 @@ export default function Admin() {
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Brand</label>
               <input type="text" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})}
-                placeholder="Rolex, Patek Philippe..." className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
+                placeholder="Rolex, Patek Philippe..."
+                className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Model Name</label>
               <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-                placeholder="Submariner Date..." className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
+                placeholder="Submariner Date..."
+                className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Price (€)</label>
               <input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})}
-                placeholder="2500" className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
+                placeholder="2500"
+                className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Description</label>
               <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-                placeholder="Watch details..." rows={4} className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 resize-none" />
+                placeholder="Watch details..." rows={4}
+                className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 resize-none" />
             </div>
 
-            {/* Variants */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <label className="text-xs tracking-[0.3em] uppercase text-white/40">Color Variants</label>
@@ -221,14 +242,14 @@ export default function Admin() {
                     <div className="flex-1">
                       <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-2 block">Color name</label>
                       <input type="text" value={variant.color}
-                        onChange={e => updateVariant(i, 'color', e.target.value)}
+                        onChange={e => updateVariantColor(i, e.target.value)}
                         placeholder="Black, Blue, Green..."
                         className="w-full bg-white/5 border border-white/10 px-4 py-3 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
                     </div>
                     <div className="w-32">
                       <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-2 block">Stock</label>
                       <input type="number" value={variant.stock}
-                        onChange={e => updateVariant(i, 'stock', e.target.value)}
+                        onChange={e => updateVariantStock(i, e.target.value)}
                         className="w-full bg-white/5 border border-white/10 px-4 py-3 text-sm focus:outline-none focus:border-white/40" />
                     </div>
                   </div>
@@ -244,7 +265,7 @@ export default function Admin() {
                     )}
                     <input type="file" accept="image/*" onChange={e => {
                       const file = e.target.files?.[0]
-                      if (file) updateVariant(i, 'image', file)
+                      if (file) updateVariantImage(i, file)
                     }} className="hidden" />
                   </label>
 
