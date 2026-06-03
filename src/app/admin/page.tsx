@@ -91,9 +91,9 @@ export default function Admin() {
   const uploadImage = async (file: File) => {
     const ext = file.name.split('.').pop()
     const filename = `${Date.now()}-${Math.random()}.${ext}`
-    const { data, error } = await supabase.storage.from('watches').upload(filename, file, { contentType: file.type })
+    const { data, error } = await supabase.storage.from('Watches').upload(filename, file, { contentType: file.type })
     if (!error && data) {
-      const { data: urlData } = supabase.storage.from('watches').getPublicUrl(filename)
+      const { data: urlData } = supabase.storage.from('Watches').getPublicUrl(filename)
       return urlData.publicUrl
     }
     return ''
@@ -271,7 +271,6 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  {/* Photos grid */}
                   <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">
                     Photos ({variant.images.length}/10)
                   </label>
