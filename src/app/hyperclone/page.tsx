@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useCart } from '@/context/CartContext'
 import Navbar from '@/components/Navbar'
 
 type Watch = {
@@ -18,8 +17,6 @@ type Watch = {
 export default function Hyperclone() {
   const [watches, setWatches] = useState<Watch[]>([])
   const [selectedBrand, setSelectedBrand] = useState('All')
-  const [added, setAdded] = useState<string | null>(null)
-  const { addItem } = useCart()
 
   useEffect(() => {
     const fetchWatches = async () => {
@@ -35,12 +32,6 @@ export default function Hyperclone() {
   const brands = ['All', ...Array.from(new Set(watches.map(w => w.brand)))]
   const filtered = selectedBrand === 'All' ? watches : watches.filter(w => w.brand === selectedBrand)
 
-  const handleAdd = (watch: Watch) => {
-    addItem(watch)
-    setAdded(watch.id)
-    setTimeout(() => setAdded(null), 1500)
-  }
-
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
       <Navbar />
@@ -51,15 +42,12 @@ export default function Hyperclone() {
 
       <div className="px-10 py-6 flex gap-4 overflow-x-auto border-b border-white/5">
         {brands.map(brand => (
-          <button
-            key={brand}
-            onClick={() => setSelectedBrand(brand)}
+          <button key={brand} onClick={() => setSelectedBrand(brand)}
             className={`text-xs tracking-[0.2em] uppercase px-6 py-2 border transition-colors whitespace-nowrap ${
               selectedBrand === brand
                 ? 'border-white text-white'
                 : 'border-white/20 text-white/40 hover:text-white hover:border-white/40'
-            }`}
-          >
+            }`}>
             {brand}
           </button>
         ))}
@@ -73,7 +61,7 @@ export default function Hyperclone() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5">
             {filtered.map(watch => (
-              <div key={watch.id} className="bg-[#0a0a0a] p-8 hover:bg-[#111] transition-colors group cursor-pointer">
+              <a href={`/watch/${watch.id}`} key={watch.id} className="bg-[#0a0a0a] p-8 hover:bg-[#111] transition-colors group cursor-pointer block">
                 <div className="aspect-square bg-white/3 mb-6 overflow-hidden border border-white/5">
                   {watch.image_url ? (
                     <img src={watch.image_url} alt={watch.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -88,18 +76,11 @@ export default function Hyperclone() {
                 <p className="text-sm text-white/40 mb-6 line-clamp-2">{watch.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-light">€{watch.price.toLocaleString()}</span>
-                  <button
-                    onClick={() => handleAdd(watch)}
-                    className={`text-xs tracking-[0.2em] uppercase border px-6 py-2 transition-all duration-300 ${
-                      added === watch.id
-                        ? 'border-green-400 text-green-400'
-                        : 'border-white/20 hover:bg-white hover:text-black'
-                    }`}
-                  >
-                    {added === watch.id ? 'Added ✓' : 'Add to cart'}
-                  </button>
+                  <span className="text-xs tracking-[0.2em] uppercase border border-white/20 px-6 py-2 group-hover:bg-white group-hover:text-black transition-all duration-300">
+                    View
+                  </span>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         )}
