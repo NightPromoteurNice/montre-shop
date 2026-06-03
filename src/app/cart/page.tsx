@@ -5,7 +5,7 @@ import { useState } from 'react'
 import Navbar from '@/components/Navbar'
 
 export default function Cart() {
-  const { items, removeItem, total } = useCart()
+  const { items, removeItem, updateQuantity, total } = useCart()
   const [loading, setLoading] = useState(false)
 
   const handleCheckout = async () => {
@@ -48,25 +48,34 @@ export default function Cart() {
                     <p className="text-xs tracking-widest uppercase text-white/30 mb-1">{item.brand}</p>
                     <p className="font-light">{item.name}</p>
                   </div>
-                  <p className="font-light">€{item.price.toLocaleString()}</p>
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    className="text-white/20 hover:text-white transition-colors text-xs tracking-widest uppercase ml-4"
-                  >
-                    Remove
+                  {/* Quantity */}
+                  <div className="flex items-center gap-3 border border-white/10">
+                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors">
+                      −
+                    </button>
+                    <span className="text-sm w-6 text-center">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors">
+                      +
+                    </button>
+                  </div>
+                  <p className="font-light w-24 text-right">€{(item.price * item.quantity).toLocaleString()}</p>
+                  <button onClick={() => removeItem(item.id)}
+                    className="text-white/20 hover:text-red-400 transition-colors text-xs tracking-widest uppercase ml-2">
+                    ✕
                   </button>
                 </div>
               ))}
             </div>
+
             <div className="flex items-center justify-between mb-12 border-t border-white/10 pt-6">
               <span className="text-xs tracking-widest uppercase text-white/40">Total</span>
               <span className="text-2xl font-thin">€{total.toLocaleString()}</span>
             </div>
-            <button
-              onClick={handleCheckout}
-              disabled={loading}
-              className="w-full border border-white/20 px-10 py-4 text-xs tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-40"
-            >
+
+            <button onClick={handleCheckout} disabled={loading}
+              className="w-full border border-white/20 px-10 py-4 text-xs tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-40">
               {loading ? 'Processing...' : 'Proceed to Payment'}
             </button>
           </>
