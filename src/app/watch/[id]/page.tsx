@@ -1,6 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCart } from '@/context/CartContext'
 import Navbar from '@/components/Navbar'
@@ -23,54 +24,62 @@ type Watch = {
   variants: Variant[]
 }
 
-export default function WatchPage({ params }: { params: { id: string } }) {
+export default function WatchPage() {
+  const params = useParams()
+  const id = params.id as string
   const [watch, setWatch] = useState<Watch | null>(null)
+  const [loading, setLoading] = useState(true)
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [added, setAdded] = useState(false)
   const { addItem } = useCart()
 
   useEffect(() => {
+    if (!id) return
     const fetchWatch = async () => {
+      setLoading(true)
+
       const { data: watchData } = await supabase
         .from('watches')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
-      if (watchData) {
-        const { data: variantsData } = await supabase
-          .from('variants')
-          .select('*')
-          .eq('watch_id', params.id)
+      if (!watchData) { setLoading(false); return }
 
-        const variantsWithImages = await Promise.all(
-          (variantsData || []).map(async (v) => {
-            const { data: images } = await supabase
-              .from('watch_images')
-              .select('*')
-              .eq('variant_id', v.id)
-              .order('position')
-            return { ...v, images: images || [] }
-          })
-        )
+      const { data: variantsData } = await supabase
+        .from('variants')
+        .select('*')
+        .eq('watch_id', id)
 
-        const fullWatch = { ...watchData, variants: variantsWithImages }
-        setWatch(fullWatch)
-        if (variantsWithImages.length > 0) {
-          setSelectedVariant(variantsWithImages[0])
-          const firstImage = variantsWithImages[0].images[0]?.image_url || variantsWithImages[0].image_url
-          setSelectedImage(firstImage)
-        }
+      const variantsWithImages = await Promise.all(
+        (variantsData || []).map(async (v) => {
+          const { data: images } = await supabase
+            .from('watch_images')
+            .select('*')
+            .eq('variant_id', v.id)
+            .order('position')
+          return { ...v, images: images || [] }
+        })
+      )
+
+      const fullWatch = { ...watchData, variants: variantsWithImages }
+      setWatch(fullWatch)
+
+      if (variantsWithImages.length > 0) {
+        setSelectedVariant(variantsWithImages[0])
+        const firstImage = variantsWithImages[0].images[0]?.image_url || variantsWithImages[0].image_url
+        setSelectedImage(firstImage || null)
       }
+      setLoading(false)
     }
     fetchWatch()
-  }, [params.id])
+  }, [id])
 
   const handleVariantSelect = (variant: Variant) => {
     setSelectedVariant(variant)
     const firstImage = variant.images[0]?.image_url || variant.image_url
-    setSelectedImage(firstImage)
+    setSelectedImage(firstImage || null)
   }
 
   const handleAdd = () => {
@@ -86,16 +95,23 @@ export default function WatchPage({ params }: { params: { id: string } }) {
     setTimeout(() => setAdded(false), 2000)
   }
 
-  if (!watch) return (
+  if (loading) return (
     <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
       <Navbar />
       <p className="text-white/20 text-xs tracking-widest uppercase">Loading...</p>
     </main>
   )
 
+  if (!watch) return (
+    <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
+      <Navbar />
+      <p className="text-white/20 text-xs tracking-widest uppercase">Watch not found</p>
+    </main>
+  )
+
   const allImages = selectedVariant?.images.length
     ? selectedVariant.images.map(i => i.image_url)
-    : [selectedVariant?.image_url || '']
+    : selectedVariant?.image_url ? [selectedVariant.image_url] : []
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pt-16">
@@ -117,7 +133,6 @@ export default function WatchPage({ params }: { params: { id: string } }) {
                 </div>
               )}
             </div>
-            {/* Thumbnails */}
             {allImages.length > 1 && (
               <div className="grid grid-cols-5 gap-2">
                 {allImages.map((img, i) => (
@@ -137,10 +152,8 @@ export default function WatchPage({ params }: { params: { id: string } }) {
             <p className="text-xs tracking-[0.4em] uppercase text-white/30 mb-3">{watch.brand}</p>
             <h1 className="text-4xl font-thin mb-2">{watch.name}</h1>
             <p className="text-2xl font-thin text-white/70 mb-8">€{watch.price.toLocaleString()}</p>
-
             <p className="text-sm text-white/50 leading-relaxed mb-10">{watch.description}</p>
 
-            {/* Color variants */}
             {watch.variants.length > 0 && (
               <div className="mb-10">
                 <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-4 block">
@@ -155,15 +168,13 @@ export default function WatchPage({ params }: { params: { id: string } }) {
                           : 'border-white/20 text-white/40 hover:border-white/40'
                       } ${variant.stock === 0 ? 'opacity-30 cursor-not-allowed line-through' : ''}`}
                       disabled={variant.stock === 0}>
-                      {variant.color}
-                      {variant.stock === 0 && ' — Out of stock'}
+                      {variant.color}{variant.stock === 0 ? ' — Out of stock' : ''}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Stock */}
             {selectedVariant && (
               <p className="text-xs tracking-widest uppercase mb-8 text-white/40">
                 {selectedVariant.stock > 0
@@ -175,9 +186,7 @@ export default function WatchPage({ params }: { params: { id: string } }) {
             <button onClick={handleAdd}
               disabled={!selectedVariant || selectedVariant.stock === 0}
               className={`w-full py-4 text-xs tracking-[0.3em] uppercase border transition-all duration-300 ${
-                added
-                  ? 'border-green-400 text-green-400'
-                  : 'border-white/20 hover:bg-white hover:text-black'
+                added ? 'border-green-400 text-green-400' : 'border-white/20 hover:bg-white hover:text-black'
               } disabled:opacity-30 disabled:cursor-not-allowed`}>
               {added ? 'Added to cart ✓' : 'Add to cart'}
             </button>
