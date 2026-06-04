@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Navbar from '@/components/Navbar'
-import Filters from '@/components/Filters'
+import Filters, { FiltersType } from '@/components/Filters'
 
 type Watch = {
   id: string
@@ -15,31 +15,39 @@ type Watch = {
   image_url: string
 }
 
-type FiltersType = {
-  brands: string[]
-  colors: string[]
-  minPrice: number
-  maxPrice: number
+type Variant = {
+  watch_id: string
+  color: string
 }
 
 export default function Hyperclone() {
   const [watches, setWatches] = useState<Watch[]>([])
+  const [variants, setVariants] = useState<Variant[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filters, setFilters] = useState<FiltersType>({
     brands: [], colors: [], minPrice: 0, maxPrice: 999999
   })
 
   useEffect(() => {
-    const fetchWatches = async () => {
-      const { data } = await supabase.from('watches').select('*').eq('category', 'hyperclone')
-      if (data) setWatches(data)
+    const fetch = async () => {
+      const { data: w } = await supabase.from('watches').select('*').eq('category', 'hyperclone')
+      if (w) setWatches(w)
+      const { data: v } = await supabase.from('variants').select('watch_id, color')
+      if (v) setVariants(v)
     }
-    fetchWatches()
+    fetch()
   }, [])
 
   const filtered = watches.filter(w => {
     if (filters.brands.length > 0 && !filters.brands.includes(w.brand)) return false
     if (w.price < filters.minPrice || w.price > filters.maxPrice) return false
+    if (filters.colors.length > 0) {
+      const watchVariants = variants.filter(v => v.watch_id === w.id)
+      const hasColor = watchVariants.some(v =>
+        filters.colors.some(c => v.color.toLowerCase().includes(c.toLowerCase()))
+      )
+      if (!hasColor) return false
+    }
     return true
   })
 
@@ -56,7 +64,7 @@ export default function Hyperclone() {
           <h1 className="text-3xl md:text-5xl font-thin tracking-wide">Hyperclone</h1>
         </div>
         <button onClick={() => setFiltersOpen(true)}
-          className="flex items-center gap-2 border border-white/20 px-4 py-2 text-xs tracking-widest uppercase text-white/50 hover:text-white hover:border-white/40 transition-colors mb-1">
+          className="flex md:hidden items-center gap-2 border border-white/20 px-4 py-2 text-xs tracking-widest uppercase text-white/50 hover:text-white transition-colors mb-1">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <line x1="4" y1="6" x2="20" y2="6"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
@@ -67,23 +75,21 @@ export default function Hyperclone() {
       </div>
 
       <div className="flex">
-        {/* Filters panel */}
-        <div className="hidden md:block w-64 flex-shrink-0 px-10 py-8 border-r border-white/5 sticky top-16 h-screen overflow-y-auto">
-          <Filters filters={filters} onChange={setFilters} isOpen={true} onClose={() => {}} />
+        {/* Filters desktop */}
+        <div className="hidden md:block w-64 flex-shrink-0 border-r border-white/5 sticky top-16 max-h-screen overflow-y-auto">
+          <Filters filters={filters} onChange={setFilters} isOpen={true} onClose={() => {}} isMobile={false} />
         </div>
 
-        {/* Mobile filters */}
-        <Filters filters={filters} onChange={setFilters} isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} />
+        {/* Filters mobile */}
+        <Filters filters={filters} onChange={setFilters} isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} isMobile={true} />
 
-        {/* Watches grid */}
+        {/* Grid */}
         <div className="flex-1 px-4 md:px-10 py-8 md:py-16">
           <p className="text-xs tracking-widest uppercase text-white/20 mb-6">
             {filtered.length} {filtered.length === 1 ? 'watch' : 'watches'}
           </p>
           {filtered.length === 0 ? (
-            <div className="text-center py-32 text-white/20 text-sm tracking-widest uppercase">
-              No watches found
-            </div>
+            <div className="text-center py-32 text-white/20 text-sm tracking-widest uppercase">No watches found</div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-px bg-white/5">
               {filtered.map(watch => (
@@ -102,9 +108,7 @@ export default function Hyperclone() {
                   <p className="text-xs text-white/40 mb-3 line-clamp-2">{watch.description}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-sm md:text-base font-light">€{watch.price.toLocaleString()}</span>
-                    <span className="text-xs tracking-[0.2em] uppercase border border-white/20 px-3 py-1 group-hover:bg-white group-hover:text-black transition-all duration-300">
-                      View
-                    </span>
+                    <span className="text-xs tracking-[0.2em] uppercase border border-white/20 px-3 py-1 group-hover:bg-white group-hover:text-black transition-all duration-300">View</span>
                   </div>
                 </a>
               ))}
