@@ -5,6 +5,14 @@ import { supabase } from '@/lib/supabase'
 
 const ADMIN_PASSWORD = 'Mistigri64+'
 
+const BRANDS = [
+  'Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega',
+  'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Panerai', 'Breitling',
+  'TAG Heuer', 'Hublot', 'Vacheron Constantin', 'A. Lange & Söhne',
+  'Blancpain', 'Breguet', 'Chopard', 'Franck Muller', 'Bell & Ross',
+  'Tudor', 'Longines', 'Zenith', 'Girard-Perregaux', 'MB&F'
+]
+
 type Watch = {
   id: string
   name: string
@@ -22,18 +30,28 @@ type Variant = {
   previews: string[]
 }
 
+type FormType = {
+  name: string
+  brand: string
+  price: string
+  description: string
+  category: string
+}
+
 export default function Admin() {
   const [authenticated, setAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
   const [wrongPassword, setWrongPassword] = useState(false)
   const [tab, setTab] = useState<'add' | 'manage'>('add')
   const [watches, setWatches] = useState<Watch[]>([])
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormType>({
     name: '', brand: '', price: '', description: '', category: 'hyperclone'
   })
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
   const [variants, setVariants] = useState<Variant[]>([])
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const fetchWatches = async () => {
     const { data } = await supabase.from('watches').select('*').order('created_at', { ascending: false })
@@ -50,6 +68,21 @@ export default function Admin() {
       setWrongPassword(true)
       setTimeout(() => setWrongPassword(false), 2000)
     }
+  }
+
+  const handleBrandInput = (value: string) => {
+    setForm({ ...form, brand: value })
+    if (value.length > 0) {
+      const suggestions = BRANDS.filter(b => b.toLowerCase().startsWith(value.toLowerCase()))
+      setBrandSuggestions(suggestions.slice(0, 5))
+    } else {
+      setBrandSuggestions([])
+    }
+  }
+
+  const selectBrand = (brand: string) => {
+    setForm({ ...form, brand })
+    setBrandSuggestions([])
   }
 
   const addVariant = () => {
@@ -99,62 +132,122 @@ export default function Admin() {
     return ''
   }
 
+  const handleEdit = (watch: Watch) => {
+    setEditingId(watch.id)
+    setForm({
+      name: watch.name,
+      brand: watch.brand,
+      price: watch.price.toString(),
+      description: watch.description,
+      category: watch.category
+    })
+    setVariants([])
+    setTab('add')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setForm({ name: '', brand: '', price: '', description: '', category: 'hyperclone' })
+    setVariants([])
+  }
+
   const handleSubmit = async () => {
     if (!form.name || !form.brand || !form.price) return
     setLoading(true)
 
-    const { data: watchData, error } = await supabase.from('watches').insert([{
-      name: form.name,
-      brand: form.brand,
-      price: parseFloat(form.price),
-      description: form.description,
-      category: form.category,
-      image_url: '',
-      stock: variants.length
-    }]).select().single()
+    if (editingId) {
+      // Mode modification
+      await supabase.from('watches').update({
+        name: form.name,
+        brand: form.brand,
+        price: parseFloat(form.price),
+        description: form.description,
+        category: form.category,
+      }).eq('id', editingId)
 
-    if (!error && watchData) {
-      let firstImageUrl = ''
+      // Ajouter nouveaux variants si y'en a
+      if (variants.length > 0) {
+        for (let i = 0; i < variants.length; i++) {
+          const variant = variants[i]
+          const { data: variantData } = await supabase.from('variants').insert([{
+            watch_id: editingId,
+            color: variant.color,
+            stock: parseInt(variant.stock),
+            image_url: ''
+          }]).select().single()
 
-      for (let i = 0; i < variants.length; i++) {
-        const variant = variants[i]
-        const { data: variantData } = await supabase.from('variants').insert([{
-          watch_id: watchData.id,
-          color: variant.color,
-          stock: parseInt(variant.stock),
-          image_url: ''
-        }]).select().single()
-
-        if (variantData) {
-          for (let j = 0; j < variant.images.length; j++) {
-            const imageUrl = await uploadImage(variant.images[j])
-            await supabase.from('watch_images').insert([{
-              variant_id: variantData.id,
-              image_url: imageUrl,
-              position: j
-            }])
-            if (i === 0 && j === 0) firstImageUrl = imageUrl
-          }
-          if (variant.images.length > 0) {
-            const firstVariantImage = await uploadImage(variant.images[0])
-            await supabase.from('variants').update({ image_url: firstVariantImage }).eq('id', variantData.id)
+          if (variantData) {
+            let firstUrl = ''
+            for (let j = 0; j < variant.images.length; j++) {
+              const imageUrl = await uploadImage(variant.images[j])
+              await supabase.from('watch_images').insert([{
+                variant_id: variantData.id,
+                image_url: imageUrl,
+                position: j
+              }])
+              if (j === 0) firstUrl = imageUrl
+            }
+            if (firstUrl) {
+              await supabase.from('variants').update({ image_url: firstUrl }).eq('id', variantData.id)
+              await supabase.from('watches').update({ image_url: firstUrl }).eq('id', editingId)
+            }
           }
         }
       }
 
-      if (firstImageUrl) {
-        await supabase.from('watches').update({ image_url: firstImageUrl }).eq('id', watchData.id)
+      setEditingId(null)
+    } else {
+      // Mode création
+      const { data: watchData, error } = await supabase.from('watches').insert([{
+        name: form.name,
+        brand: form.brand,
+        price: parseFloat(form.price),
+        description: form.description,
+        category: form.category,
+        image_url: '',
+        stock: variants.length
+      }]).select().single()
+
+      if (!error && watchData) {
+        let firstImageUrl = ''
+        for (let i = 0; i < variants.length; i++) {
+          const variant = variants[i]
+          const { data: variantData } = await supabase.from('variants').insert([{
+            watch_id: watchData.id,
+            color: variant.color,
+            stock: parseInt(variant.stock),
+            image_url: ''
+          }]).select().single()
+
+          if (variantData) {
+            for (let j = 0; j < variant.images.length; j++) {
+              const imageUrl = await uploadImage(variant.images[j])
+              await supabase.from('watch_images').insert([{
+                variant_id: variantData.id,
+                image_url: imageUrl,
+                position: j
+              }])
+              if (i === 0 && j === 0) firstImageUrl = imageUrl
+            }
+            if (variant.images.length > 0) {
+              const firstVariantImage = await uploadImage(variant.images[0])
+              await supabase.from('variants').update({ image_url: firstVariantImage }).eq('id', variantData.id)
+            }
+          }
+        }
+        if (firstImageUrl) {
+          await supabase.from('watches').update({ image_url: firstImageUrl }).eq('id', watchData.id)
+        }
       }
     }
 
     setLoading(false)
-    if (!error) {
-      setSuccess(true)
-      setForm({ name: '', brand: '', price: '', description: '', category: 'hyperclone' })
-      setVariants([])
-      setTimeout(() => setSuccess(false), 3000)
-      fetchWatches()
-    }
+    setSuccess(true)
+    setForm({ name: '', brand: '', price: '', description: '', category: 'hyperclone' })
+    setVariants([])
+    setTimeout(() => setSuccess(false), 3000)
+    fetchWatches()
   }
 
   const handleDelete = async (id: string) => {
@@ -188,17 +281,26 @@ export default function Admin() {
 
         <div className="flex gap-4 mb-12">
           {(['add', 'manage'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
+            <button key={t} onClick={() => { setTab(t); handleCancelEdit() }}
               className={`px-8 py-3 text-xs tracking-[0.2em] uppercase border transition-colors ${
                 tab === t ? 'border-white text-white' : 'border-white/20 text-white/40 hover:border-white/40'
               }`}>
-              {t === 'add' ? 'Add Watch' : 'Manage Watches'}
+              {t === 'add' ? (editingId ? 'Edit Watch' : 'Add Watch') : 'Manage Watches'}
             </button>
           ))}
         </div>
 
         {tab === 'add' ? (
           <div className="flex flex-col gap-6">
+
+            {editingId && (
+              <div className="border border-yellow-400/30 bg-yellow-400/5 px-6 py-4 flex items-center justify-between">
+                <p className="text-xs tracking-widest uppercase text-yellow-400">Editing existing watch</p>
+                <button onClick={handleCancelEdit} className="text-xs text-white/40 hover:text-white transition-colors">Cancel</button>
+              </div>
+            )}
+
+            {/* Category */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Category</label>
               <div className="flex gap-4">
@@ -213,20 +315,42 @@ export default function Admin() {
               </div>
             </div>
 
-            <div>
+            {/* Brand avec suggestions */}
+            <div className="relative">
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Brand</label>
-              <input type="text" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})}
-                placeholder="Rolex, Patek Philippe..."
+              <input type="text" value={form.brand} onChange={e => handleBrandInput(e.target.value)}
+                placeholder="Type a brand..."
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
+              {brandSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 w-full bg-[#111] border border-white/10 z-10">
+                  {brandSuggestions.map(brand => (
+                    <button key={brand} onClick={() => selectBrand(brand)}
+                      className="w-full text-left px-6 py-3 text-sm text-white/60 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Raccourcis marques populaires */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {['Rolex', 'Patek Philippe', 'Omega', 'Cartier', 'AP', 'Hublot', 'Richard Mille'].map(b => (
+                  <button key={b} onClick={() => selectBrand(b === 'AP' ? 'Audemars Piguet' : b)}
+                    className="text-xs px-3 py-1 border border-white/10 text-white/30 hover:text-white hover:border-white/30 transition-colors">
+                    {b}
+                  </button>
+                ))}
+              </div>
             </div>
 
+            {/* Name */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Model Name</label>
               <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-                placeholder="Day-Date 40..."
+                placeholder="Day-Date 40, Submariner..."
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
+            {/* Price */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Price (€)</label>
               <input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})}
@@ -234,6 +358,7 @@ export default function Admin() {
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
+            {/* Description */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Description</label>
               <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
@@ -241,16 +366,21 @@ export default function Admin() {
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 resize-none" />
             </div>
 
+            {/* Variants */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <label className="text-xs tracking-[0.3em] uppercase text-white/40">Color Variants</label>
+                <label className="text-xs tracking-[0.3em] uppercase text-white/40">
+                  {editingId ? 'Add New Color Variants' : 'Color Variants'}
+                </label>
                 <button onClick={addVariant} className="text-xs tracking-widest uppercase border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition-all duration-300">
                   + Add Color
                 </button>
               </div>
 
               {variants.length === 0 && (
-                <p className="text-xs text-white/20 tracking-widest">No variants — click "Add Color" to add one</p>
+                <p className="text-xs text-white/20 tracking-widest">
+                  {editingId ? 'Add new color variants — existing ones are kept' : 'No variants — click "Add Color" to add one'}
+                </p>
               )}
 
               {variants.map((variant, i) => (
@@ -262,6 +392,15 @@ export default function Admin() {
                         onChange={e => updateVariantColor(i, e.target.value)}
                         placeholder="Black, Blue, Green..."
                         className="w-full bg-white/5 border border-white/10 px-4 py-3 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
+                      {/* Raccourcis couleurs */}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {['Black', 'White', 'Blue', 'Green', 'Grey', 'Gold', 'Silver', 'Champagne'].map(c => (
+                          <button key={c} onClick={() => updateVariantColor(i, c)}
+                            className="text-xs px-2 py-1 border border-white/10 text-white/30 hover:text-white hover:border-white/30 transition-colors">
+                            {c}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div className="w-32">
                       <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-2 block">Stock</label>
@@ -303,10 +442,14 @@ export default function Admin() {
 
             <button onClick={handleSubmit} disabled={loading}
               className="mt-4 border border-white/20 px-10 py-4 text-xs tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-40">
-              {loading ? 'Adding...' : 'Add Watch'}
+              {loading ? 'Saving...' : editingId ? 'Save Changes' : 'Add Watch'}
             </button>
 
-            {success && <p className="text-xs tracking-widest uppercase text-green-400">Watch added successfully ✓</p>}
+            {success && (
+              <p className="text-xs tracking-widest uppercase text-green-400">
+                {editingId ? 'Watch updated successfully ✓' : 'Watch added successfully ✓'}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-px bg-white/5">
@@ -328,8 +471,12 @@ export default function Admin() {
                   <p className="font-light">{watch.name}</p>
                 </div>
                 <p className="font-light text-sm">€{watch.price.toLocaleString()}</p>
+                <button onClick={() => handleEdit(watch)}
+                  className="text-xs tracking-widest uppercase border border-white/20 text-white/50 hover:border-white hover:text-white px-4 py-2 transition-colors">
+                  Edit
+                </button>
                 <button onClick={() => handleDelete(watch.id)}
-                  className="text-xs tracking-widest uppercase border border-red-400/30 text-red-400/60 hover:border-red-400 hover:text-red-400 px-4 py-2 transition-colors ml-4">
+                  className="text-xs tracking-widest uppercase border border-red-400/30 text-red-400/60 hover:border-red-400 hover:text-red-400 px-4 py-2 transition-colors">
                   Delete
                 </button>
               </div>
