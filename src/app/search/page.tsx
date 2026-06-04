@@ -1,6 +1,6 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Navbar from '@/components/Navbar'
@@ -15,14 +15,14 @@ type Watch = {
   image_url: string
 }
 
-export default function SearchPage() {
+function SearchResults() {
   const searchParams = useSearchParams()
   const query = searchParams.get('q') || ''
   const [watches, setWatches] = useState<Watch[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!query) return
+    if (!query) { setLoading(false); return }
     const fetchResults = async () => {
       setLoading(true)
       const { data } = await supabase
@@ -36,8 +36,7 @@ export default function SearchPage() {
   }, [query])
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white pt-14 md:pt-16">
-      <Navbar />
+    <>
       <div className="px-4 md:px-10 py-10 md:py-16 border-b border-white/5">
         <p className="text-xs tracking-[0.5em] uppercase text-white/30 mb-3">Results for</p>
         <h1 className="text-3xl md:text-5xl font-thin tracking-wide">"{query}"</h1>
@@ -82,6 +81,17 @@ export default function SearchPage() {
           </>
         )}
       </div>
+    </>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <main className="min-h-screen bg-[#0a0a0a] text-white pt-14 md:pt-16">
+      <Navbar />
+      <Suspense fallback={<div className="text-center py-32 text-white/20 text-sm tracking-widest uppercase">Loading...</div>}>
+        <SearchResults />
+      </Suspense>
     </main>
   )
 }
