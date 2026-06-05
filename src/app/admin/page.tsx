@@ -52,6 +52,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   const fetchWatches = async () => {
     const { data } = await supabase.from('watches').select('*').order('created_at', { ascending: false })
@@ -157,7 +158,6 @@ export default function Admin() {
     setLoading(true)
 
     if (editingId) {
-      // Mode modification
       await supabase.from('watches').update({
         name: form.name,
         brand: form.brand,
@@ -166,7 +166,6 @@ export default function Admin() {
         category: form.category,
       }).eq('id', editingId)
 
-      // Ajouter nouveaux variants si y'en a
       if (variants.length > 0) {
         for (let i = 0; i < variants.length; i++) {
           const variant = variants[i]
@@ -195,10 +194,8 @@ export default function Admin() {
           }
         }
       }
-
       setEditingId(null)
     } else {
-      // Mode création
       const { data: watchData, error } = await supabase.from('watches').insert([{
         name: form.name,
         brand: form.brand,
@@ -255,6 +252,19 @@ export default function Admin() {
     fetchWatches()
   }
 
+  const generateDescription = async () => {
+    if (!form.name || !form.brand) return
+    setGenerating(true)
+    const res = await fetch('/api/generate-description', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, brand: form.brand })
+    })
+    const data = await res.json()
+    if (data.description) setForm(f => ({ ...f, description: data.description }))
+    setGenerating(false)
+  }
+
   if (!authenticated) {
     return (
       <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
@@ -300,7 +310,6 @@ export default function Admin() {
               </div>
             )}
 
-            {/* Category */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Category</label>
               <div className="flex gap-4">
@@ -315,7 +324,6 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Brand avec suggestions */}
             <div className="relative">
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Brand</label>
               <input type="text" value={form.brand} onChange={e => handleBrandInput(e.target.value)}
@@ -331,7 +339,6 @@ export default function Admin() {
                   ))}
                 </div>
               )}
-              {/* Raccourcis marques populaires */}
               <div className="flex flex-wrap gap-2 mt-3">
                 {['Rolex', 'Patek Philippe', 'Omega', 'Cartier', 'AP', 'Hublot', 'Richard Mille'].map(b => (
                   <button key={b} onClick={() => selectBrand(b === 'AP' ? 'Audemars Piguet' : b)}
@@ -342,7 +349,6 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Name */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Model Name</label>
               <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
@@ -350,7 +356,6 @@ export default function Admin() {
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
-            {/* Price */}
             <div>
               <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Price (€)</label>
               <input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})}
@@ -358,15 +363,25 @@ export default function Admin() {
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
             </div>
 
-            {/* Description */}
             <div>
-              <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Description</label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-xs tracking-[0.3em] uppercase text-white/40">Description</label>
+                <button onClick={generateDescription}
+                  disabled={!form.name || !form.brand || generating}
+                  className="text-xs tracking-widest uppercase border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-30 flex items-center gap-2">
+                  {generating ? (
+                    <>
+                      <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin inline-block" />
+                      Generating...
+                    </>
+                  ) : '✦ Auto-fill'}
+                </button>
+              </div>
               <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-                placeholder="Watch details..." rows={4}
+                placeholder="Watch details or click Auto-fill..." rows={4}
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 resize-none" />
             </div>
 
-            {/* Variants */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <label className="text-xs tracking-[0.3em] uppercase text-white/40">
@@ -392,7 +407,6 @@ export default function Admin() {
                         onChange={e => updateVariantColor(i, e.target.value)}
                         placeholder="Black, Blue, Green..."
                         className="w-full bg-white/5 border border-white/10 px-4 py-3 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20" />
-                      {/* Raccourcis couleurs */}
                       <div className="flex flex-wrap gap-2 mt-2">
                         {['Black', 'White', 'Blue', 'Green', 'Grey', 'Gold', 'Silver', 'Champagne'].map(c => (
                           <button key={c} onClick={() => updateVariantColor(i, c)}
@@ -447,7 +461,7 @@ export default function Admin() {
 
             {success && (
               <p className="text-xs tracking-widest uppercase text-green-400">
-                {editingId ? 'Watch updated successfully ✓' : 'Watch added successfully ✓'}
+                {editingId ? 'Watch updated ✓' : 'Watch added successfully ✓'}
               </p>
             )}
           </div>
