@@ -28,6 +28,7 @@ type Variant = {
   stock: string
   images: File[]
   previews: string[]
+  urlInput: string
 }
 
 type FormType = {
@@ -86,7 +87,7 @@ export default function Admin() {
   }
 
   const addVariant = () => {
-    setVariants([...variants, { color: '', stock: '1', images: [], previews: [] }])
+    setVariants([...variants, { color: '', stock: '1', images: [], previews: [], urlInput: '' }])
   }
 
   const updateVariantColor = (index: number, value: string) => {
@@ -98,6 +99,22 @@ export default function Admin() {
   const updateVariantStock = (index: number, value: string) => {
     const updated = [...variants]
     updated[index].stock = value
+    setVariants(updated)
+  }
+
+  const updateVariantUrlInput = (index: number, value: string) => {
+    const updated = [...variants]
+    updated[index].urlInput = value
+    setVariants(updated)
+  }
+
+  const addUrlToVariant = (index: number) => {
+    const updated = [...variants]
+    const url = updated[index].urlInput.trim()
+    if (!url || updated[index].previews.length >= 10) return
+    updated[index].previews = [...updated[index].previews, url]
+    updated[index].images = [...updated[index].images, new File([], url)]
+    updated[index].urlInput = ''
     setVariants(updated)
   }
 
@@ -122,6 +139,10 @@ export default function Admin() {
   }
 
   const uploadImage = async (file: File) => {
+    // Si c'est une URL directe (Yupoo etc.)
+    if (file.size === 0 && file.name.startsWith('http')) {
+      return file.name
+    }
     const ext = file.name.split('.').pop()
     const filename = `${Date.now()}-${Math.random()}.${ext}`
     const { data, error } = await supabase.storage.from('Watches').upload(filename, file, { contentType: file.type })
@@ -398,19 +419,36 @@ export default function Admin() {
                   </div>
 
                   <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">
-                    Photos ({variant.images.length}/10)
+                    Photos ({variant.previews.length}/10)
                   </label>
+
+                  {/* Ajouter via URL */}
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={variant.urlInput}
+                      onChange={e => updateVariantUrlInput(i, e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addUrlToVariant(i) }}}
+                      placeholder="Paste image URL then press Enter..."
+                      className="flex-1 bg-white/5 border border-white/10 px-4 py-2 text-xs focus:outline-none focus:border-white/40 placeholder:text-white/20"
+                    />
+                    <button onClick={() => addUrlToVariant(i)}
+                      className="border border-white/20 px-4 py-2 text-xs tracking-widest uppercase hover:bg-white hover:text-black transition-all duration-300">
+                      Add
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-5 gap-2 mb-3">
                     {variant.previews.map((preview, j) => (
                       <div key={j} className="relative aspect-square">
-                        <img src={preview} className="w-full h-full object-cover border border-white/10" />
+                        <img src={preview} className="w-full h-full object-cover border border-white/10" onError={e => (e.currentTarget.style.opacity = '0.3')} />
                         <button onClick={() => removeVariantImage(i, j)}
                           className="absolute top-1 right-1 bg-black/80 text-white text-xs w-5 h-5 flex items-center justify-center hover:bg-red-500 transition-colors">
                           ×
                         </button>
                       </div>
                     ))}
-                    {variant.images.length < 10 && (
+                    {variant.previews.length < 10 && (
                       <label className="aspect-square border border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors">
                         <span className="text-white/20 text-xl">+</span>
                         <input type="file" accept="image/*" multiple onChange={e => {
@@ -420,7 +458,7 @@ export default function Admin() {
                     )}
                   </div>
 
-                  <button onClick={() => removeVariant(i)} className="text-xs tracking-widest uppercase text-red-400/60 hover:text-red-400 transition-colors">
+                  <button onClick={() => removeVariant(i)} className="text-xs tracking-widests uppercase text-red-400/60 hover:text-red-400 transition-colors">
                     Remove variant
                   </button>
                 </div>
@@ -433,7 +471,7 @@ export default function Admin() {
             </button>
 
             {success && (
-              <p className="text-xs tracking-widest uppercase text-green-400">
+              <p className="text-xs tracking-widests uppercase text-green-400">
                 {editingId ? 'Watch updated ✓' : 'Watch added successfully ✓'}
               </p>
             )}
@@ -441,7 +479,7 @@ export default function Admin() {
         ) : (
           <div className="flex flex-col gap-px bg-white/5">
             {watches.length === 0 ? (
-              <div className="text-center py-16 text-white/20 text-sm tracking-widest uppercase">No watches yet</div>
+              <div className="text-center py-16 text-white/20 text-sm tracking-widests uppercase">No watches yet</div>
             ) : watches.map(watch => (
               <div key={watch.id} className="bg-[#0a0a0a] p-6 flex items-center gap-4 md:gap-6">
                 <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 border border-white/10 overflow-hidden flex-shrink-0">
@@ -454,12 +492,12 @@ export default function Admin() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs tracking-widest uppercase text-white/30 mb-1 truncate">{watch.brand} — {watch.category}</p>
+                  <p className="text-xs tracking-widests uppercase text-white/30 mb-1 truncate">{watch.brand} — {watch.category}</p>
                   <p className="font-light truncate">{watch.name}</p>
                 </div>
                 <p className="font-light text-sm hidden md:block">€{watch.price.toLocaleString()}</p>
                 <button onClick={() => handleEdit(watch)}
-                  className="text-xs tracking-widest uppercase border border-white/20 text-white/50 hover:border-white hover:text-white px-3 md:px-4 py-2 transition-colors flex-shrink-0">
+                  className="text-xs tracking-widests uppercase border border-white/20 text-white/50 hover:border-white hover:text-white px-3 md:px-4 py-2 transition-colors flex-shrink-0">
                   Edit
                 </button>
                 <button onClick={() => handleDelete(watch.id)}
