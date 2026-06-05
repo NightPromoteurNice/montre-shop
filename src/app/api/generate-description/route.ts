@@ -4,11 +4,17 @@ export async function POST(req: NextRequest) {
   try {
     const { name, brand } = await req.json()
 
+    const apiKey = process.env.ANTHROPIC_API_KEY
+
+    if (!apiKey) {
+      return NextResponse.json({ description: 'API key missing' }, { status: 500 })
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
@@ -23,13 +29,18 @@ export async function POST(req: NextRequest) {
       })
     })
 
+    if (!response.ok) {
+      const err = await response.text()
+      console.error('Anthropic error:', err)
+      return NextResponse.json({ description: 'API error: ' + err }, { status: 500 })
+    }
+
     const data = await response.json()
-    console.log('API response:', JSON.stringify(data))
-    const description = data?.content?.[0]?.text || 'Error generating description'
+    const description = data?.content?.[0]?.text || ''
 
     return NextResponse.json({ description })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ description: 'Error generating description' }, { status: 500 })
+    return NextResponse.json({ description: 'Server error' }, { status: 500 })
   }
 }
