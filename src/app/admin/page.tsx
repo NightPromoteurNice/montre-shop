@@ -52,7 +52,6 @@ export default function Admin() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [generating, setGenerating] = useState(false)
 
   const fetchWatches = async () => {
     const { data } = await supabase.from('watches').select('*').order('created_at', { ascending: false })
@@ -252,19 +251,6 @@ export default function Admin() {
     fetchWatches()
   }
 
-  const generateDescription = async () => {
-    if (!form.name || !form.brand) return
-    setGenerating(true)
-    const res = await fetch('/api/generate-description', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name, brand: form.brand })
-    })
-    const data = await res.json()
-    if (data.description) setForm(f => ({ ...f, description: data.description }))
-    setGenerating(false)
-  }
-
   if (!authenticated) {
     return (
       <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
@@ -302,7 +288,6 @@ export default function Admin() {
 
         {tab === 'add' ? (
           <div className="flex flex-col gap-6">
-
             {editingId && (
               <div className="border border-yellow-400/30 bg-yellow-400/5 px-6 py-4 flex items-center justify-between">
                 <p className="text-xs tracking-widest uppercase text-yellow-400">Editing existing watch</p>
@@ -364,21 +349,9 @@ export default function Admin() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs tracking-[0.3em] uppercase text-white/40">Description</label>
-                <button onClick={generateDescription}
-                  disabled={!form.name || !form.brand || generating}
-                  className="text-xs tracking-widest uppercase border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-30 flex items-center gap-2">
-                  {generating ? (
-                    <>
-                      <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin inline-block" />
-                      Generating...
-                    </>
-                  ) : '✦ Auto-fill'}
-                </button>
-              </div>
+              <label className="text-xs tracking-[0.3em] uppercase text-white/40 mb-3 block">Description</label>
               <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-                placeholder="Watch details or click Auto-fill..." rows={4}
+                placeholder="Watch details..." rows={4}
                 className="w-full bg-white/5 border border-white/10 px-6 py-4 text-sm focus:outline-none focus:border-white/40 placeholder:text-white/20 resize-none" />
             </div>
 
@@ -470,8 +443,8 @@ export default function Admin() {
             {watches.length === 0 ? (
               <div className="text-center py-16 text-white/20 text-sm tracking-widest uppercase">No watches yet</div>
             ) : watches.map(watch => (
-              <div key={watch.id} className="bg-[#0a0a0a] p-6 flex items-center gap-6">
-                <div className="w-16 h-16 bg-white/5 border border-white/10 overflow-hidden flex-shrink-0">
+              <div key={watch.id} className="bg-[#0a0a0a] p-6 flex items-center gap-4 md:gap-6">
+                <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 border border-white/10 overflow-hidden flex-shrink-0">
                   {watch.image_url ? (
                     <img src={watch.image_url} alt={watch.name} className="w-full h-full object-cover" />
                   ) : (
@@ -480,17 +453,17 @@ export default function Admin() {
                     </div>
                   )}
                 </div>
-                <div className="flex-1">
-                  <p className="text-xs tracking-widest uppercase text-white/30 mb-1">{watch.brand} — {watch.category}</p>
-                  <p className="font-light">{watch.name}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs tracking-widest uppercase text-white/30 mb-1 truncate">{watch.brand} — {watch.category}</p>
+                  <p className="font-light truncate">{watch.name}</p>
                 </div>
-                <p className="font-light text-sm">€{watch.price.toLocaleString()}</p>
+                <p className="font-light text-sm hidden md:block">€{watch.price.toLocaleString()}</p>
                 <button onClick={() => handleEdit(watch)}
-                  className="text-xs tracking-widest uppercase border border-white/20 text-white/50 hover:border-white hover:text-white px-4 py-2 transition-colors">
+                  className="text-xs tracking-widest uppercase border border-white/20 text-white/50 hover:border-white hover:text-white px-3 md:px-4 py-2 transition-colors flex-shrink-0">
                   Edit
                 </button>
                 <button onClick={() => handleDelete(watch.id)}
-                  className="text-xs tracking-widest uppercase border border-red-400/30 text-red-400/60 hover:border-red-400 hover:text-red-400 px-4 py-2 transition-colors">
+                  className="text-xs tracking-widests uppercase border border-red-400/30 text-red-400/60 hover:border-red-400 hover:text-red-400 px-3 md:px-4 py-2 transition-colors flex-shrink-0">
                   Delete
                 </button>
               </div>
